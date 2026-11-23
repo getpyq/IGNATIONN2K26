@@ -1,0 +1,6 @@
+{
+  "name": "IGNITION 2026 — The Freshers Celebration",
+  "description": "Interactive freshers celebration registration, personalized event poster, digital welcome pass, and organizer analytics platform for the Department of Mechanical Engineering, Parala Maharaja Engineering College.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
