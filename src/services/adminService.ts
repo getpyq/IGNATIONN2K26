@@ -130,10 +130,35 @@ export async function updateRegistrationBySuperAdmin(
     food_preference: 'vegetarian' | 'non_vegetarian';
   }
 ): Promise<RegistrationRecord> {
-  return apiFetch<RegistrationRecord>(`/api/admin/registrations/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
+  const updated = await apiFetch<RegistrationRecord>(
+    `/api/admin/registrations/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }
+  );
+  cachedOverview = null;
+  cachedCheckInList = null;
+  return updated;
+}
+
+export async function deleteRegistrationByAdmin(id: string): Promise<{
+  ok: boolean;
+  deleted: boolean;
+  id: string;
+  pass_number?: string;
+}> {
+  const res = await apiFetch<{
+    ok: boolean;
+    deleted: boolean;
+    id: string;
+    pass_number?: string;
+  }>(`/api/admin/registrations/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
   });
+  cachedOverview = null;
+  cachedCheckInList = null;
+  return res;
 }
 
 export async function scanCheckInCode(
@@ -159,45 +184,4 @@ export async function fetchCheckInList(): Promise<CheckInListResponse> {
   const data = await apiFetch<CheckInListResponse>('/api/admin/checkin/list');
   cachedCheckInList = data;
   return data;
-}
-
-export async function fetchCoordinators(): Promise<{
-  items: AdminAccountPublic[];
-}> {
-  return apiFetch('/api/admin/coordinators');
-}
-
-export async function createCoordinator(payload: {
-  full_name: string;
-  phone_number: string;
-  passcode: string;
-}): Promise<AdminAccountPublic> {
-  return apiFetch('/api/admin/coordinators', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateCoordinator(
-  id: string,
-  payload: {
-    full_name?: string;
-    phone_number?: string;
-    is_active?: boolean;
-  }
-): Promise<AdminAccountPublic> {
-  return apiFetch(`/api/admin/coordinators/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function resetCoordinatorPasscode(
-  id: string,
-  payload: { passcode: string }
-): Promise<{ ok: boolean }> {
-  return apiFetch(`/api/admin/coordinators/${id}/reset-passcode`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
 }

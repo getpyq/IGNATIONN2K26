@@ -2,7 +2,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ErrorBoundary } from './components/common/ErrorBoundary.tsx';
 import { AuthProvider } from './hooks/useAuth.tsx';
 import { AdminLogin } from './pages/admin/AdminLogin.tsx';
-import { Coordinators } from './pages/admin/Coordinators.tsx';
 import { Dashboard } from './pages/admin/Dashboard.tsx';
 import { Registrations } from './pages/admin/Registrations.tsx';
 import { Scanner } from './pages/admin/Scanner.tsx';
@@ -25,7 +24,7 @@ export default function App() {
             <Route path="/admin/scanner" element={<Scanner />} />
             <Route path="/admin/registrations" element={<Registrations />} />
             <Route path="/admin/exports" element={<Navigate to="/admin" replace />} />
-            <Route path="/admin/coordinators" element={<Coordinators />} />
+            <Route path="/admin/coordinators" element={<Navigate to="/admin" replace />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

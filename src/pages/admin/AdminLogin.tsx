@@ -45,7 +45,7 @@ export function AdminLogin() {
       <div className="min-h-screen bg-[#fff4e2] text-[#5a0f14]">
         <AnimatedBackground intensity="subtle" />
         <div className="relative z-10 flex min-h-screen items-center justify-center">
-          <LoadingScreen message="Checking Google Sheets organizer access..." />
+          <LoadingScreen message="Checking Google Sheets admin access..." />
         </div>
       </div>
     );
@@ -137,15 +137,15 @@ export function AdminLogin() {
             {!configured
               ? 'GOOGLE SHEETS SETUP REQUIRED'
               : initialized
-                ? 'ADMIN & COORDINATOR LOGIN'
-                : 'FIRST-TIME SUPER ADMIN SETUP'}
+                ? 'ADMIN LOGIN'
+                : 'FIRST-TIME ADMIN SETUP'}
           </h1>
           <p className="mt-1.5 text-sm text-[#4a4642]">
             {!configured
               ? 'Connect your Google Apps Script Web App URL to activate real-time sheet storage.'
               : initialized
-                ? 'Sign in with your organizer phone number and 6-digit passcode.'
-                : 'No Super Admin exists yet. Create the primary Super Admin account once to unlock organizer tools.'}
+                ? 'Sign in with your Admin phone number and 6-digit passcode.'
+                : 'No Admin account exists yet. Create the primary Admin account once to unlock the admin dashboard.'}
           </p>
         </div>
 
@@ -158,7 +158,7 @@ export function AdminLogin() {
                   Apps Script Web App Not Connected
                 </p>
                 <p>
-                  Set <code className="font-mono-tabular font-bold text-[#8e1b1b]">APPS_SCRIPT_URL</code> in your environment to your deployed Google Apps Script Web App URL (<code className="font-mono-tabular">https://script.google.com/macros/s/.../exec</code>).
+                  Set <code className="font-mono-tabular font-bold text-[#8e1b1b]">APPS_SCRIPT_URL</code> in your environment to your deployed Google Apps Script Web App URL (<code className="font-mono-tabular">https://script.google.com/macros/s/AKfycbwwW9aoSU12NKVaWKOGfpxLgTLrkg_x3ADjEIRKaZmq-MPNUKWgP9fqYtgzmUFuyLPvTg/exec</code>).
                 </p>
                 <p>
                   Sheet tabs (<strong>Registrations</strong> and{' '}
@@ -221,7 +221,7 @@ export function AdminLogin() {
                       setFullName(e.target.value);
                       if (error) setError(null);
                     }}
-                    placeholder="Head Organizer Name"
+                    placeholder="Admin Full Name"
                     className="mt-1.5 w-full rounded-xl border-2 border-[#1b1b1b] bg-white px-4 py-3 text-base font-medium text-[#1b1b1b] placeholder:text-[#4a4642]/45 focus:outline-none"
                   />
                 </div>
@@ -284,8 +284,8 @@ export function AdminLogin() {
                   <>
                     <span>
                       {initialized
-                        ? 'LOGIN TO ORGANIZER PORTAL'
-                        : 'CREATE SUPER ADMIN & LOGIN'}
+                        ? 'LOGIN TO ADMIN PORTAL'
+                        : 'CREATE ADMIN & LOGIN'}
                     </span>
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </>

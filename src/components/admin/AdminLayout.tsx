@@ -23,17 +23,17 @@ export function AdminLayout({
   if (loading) {
     return (
       <div className="halftone-ink min-h-screen bg-[#fff4e2] text-[#5a0f14]">
-        <LoadingScreen message="Verifying organizer session..." />
+        <LoadingScreen message="Verifying admin session..." />
       </div>
     );
   }
 
-  if (!admin) {
+  if (!admin || admin.role !== 'super_admin') {
     return <Navigate to="/admin/login" replace />;
   }
 
   if (requireSuperAdmin && admin.role !== 'super_admin') {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   const handleLogout = async () => {

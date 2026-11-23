@@ -569,7 +569,7 @@ function doPost(e) {
       var refreshed = sheetRowsToObjects(uSheet);
       var updatedObj = null;
       for (var y = 0; y < refreshed.length; y++) {
-        if (String(refreshed[y].id) === String(payload.id)) {
+        if (String(refreshed[y].id) === String(targetRow.id)) {
           updatedObj = mapRegistrationObject(refreshed[y]);
           break;
         }
@@ -577,201 +577,49 @@ function doPost(e) {
       return jsonOutput({ ok: true, data: updatedObj });
     }
 
-    if (action === 'listCoordinators') {
-      var cSheet = ensureSheet(SHEET_ADMINS, ADMIN_HEADERS);
-      var cRows = sheetRowsToObjects(cSheet);
-      var items = cRows.map(function (r) {
-        var obj = mapAdminObject(r);
-        delete obj.passcode;
-        return obj;
-      });
-      return jsonOutput({ ok: true, data: items });
-    }
-
-    if (action === 'createCoordinator') {
+    if (action === 'deleteRegistration') {
       lock.waitLock(15000);
-      var ncSheet = ensureSheet(SHEET_ADMINS, ADMIN_HEADERS);
-      var ncRows = sheetRowsToObjects(ncSheet);
-      var existsPhone = ncRows.some(function (r) {
-        return String(r.phone_number) === String(payload.phone_number);
-      });
-      if (existsPhone) {
-        return jsonOutput({
-          ok: false,
-          status: 409,
-          error: 'An organizer account with this phone number already exists.',
-        });
-      }
-      var coordId = Utilities.getUuid();
-      var ts = new Date().toISOString();
-      appendObjectRow(ncSheet, ADMIN_HEADERS, {
-        id: coordId,
-        full_name: payload.full_name,
-        phone_number: "'" + String(payload.phone_number || ''),
-        passcode: "'" + String(payload.passcode || ''),
-        role: 'coordinator',
-        is_active: true,
-        created_at: ts,
-        updated_at: ts,
-      });
-      return jsonOutput({
-        ok: true,
-        data: {
-          id: coordId,
-          full_name: payload.full_name,
-          phone_number: payload.phone_number,
-          role: 'coordinator',
-          is_active: true,
-          created_at: ts,
-          updated_at: ts,
-        },
-      });
-    }
-
-    if (action === 'updateCoordinator') {
-      lock.waitLock(15000);
-      var ucSheet = ensureSheet(SHEET_ADMINS, ADMIN_HEADERS);
-      var ucRows = sheetRowsToObjects(ucSheet);
-      var ucHeaderMap = getHeaderMap(ucSheet);
-      var ucTarget = null;
-      for (var q = 0; q < ucRows.length; q++) {
-        if (String(ucRows[q].id) === String(payload.id)) {
-          ucTarget = ucRows[q];
-          break;
-        }
-      }
-      if (!ucTarget) {
-        return jsonOutput({
-          ok: false,
-          status: 404,
-          error: 'Account not found.',
-        });
-      }
-      if (
-        String(ucTarget.role) === 'super_admin' &&
-        payload.is_active === false
-      ) {
+      var dSheet = ensureSheet(SHEET_REGISTRATIONS, REG_HEADERS);
+      var dRows = sheetRowsToObjects(dSheet);
+      var dLookup = String(payload.id || payload.pass_number || '').trim();
+      if (!dLookup) {
         return jsonOutput({
           ok: false,
           status: 400,
-          error: 'The active Super Admin account cannot be deactivated.',
+          error: 'Missing registration ID to delete.',
         });
       }
-      if (
-        payload.phone_number &&
-        String(payload.phone_number) !== String(ucTarget.phone_number)
-      ) {
-        var dupPhone = ucRows.some(function (r) {
-          return (
-            String(r.phone_number) === String(payload.phone_number) &&
-            String(r.id) !== String(payload.id)
-          );
-        });
-        if (dupPhone) {
-          return jsonOutput({
-            ok: false,
-            status: 409,
-            error: 'Phone number is already assigned to another organizer.',
-          });
+
+      var deleteTarget = null;
+      for (var dIdx = 0; dIdx < dRows.length; dIdx++) {
+        var drId = String(dRows[dIdx].id || '').trim();
+        var drPass = String(dRows[dIdx].pass_number || '').trim().toUpperCase();
+        if (drId === dLookup || drPass === dLookup.toUpperCase()) {
+          deleteTarget = dRows[dIdx];
+          break;
         }
       }
 
-      var nowTs = new Date().toISOString();
-      var nextName =
-        payload.full_name !== undefined ? payload.full_name : ucTarget.full_name;
-      var nextPhone =
-        payload.phone_number !== undefined
-          ? payload.phone_number
-          : ucTarget.phone_number;
-      var nextActive =
-        payload.is_active !== undefined
-          ? payload.is_active
-          : toBool(ucTarget.is_active);
+      if (!deleteTarget || deleteTarget._rowIndex < 2) {
+        return jsonOutput({
+          ok: false,
+          status: 404,
+          error: 'Registration record not found.',
+        });
+      }
 
-      updateRowCell(
-        ucSheet,
-        ucTarget._rowIndex,
-        ucHeaderMap,
-        'full_name',
-        nextName
-      );
-      updateRowCell(
-        ucSheet,
-        ucTarget._rowIndex,
-        ucHeaderMap,
-        'phone_number',
-        "'" + String(nextPhone || '')
-      );
-      updateRowCell(
-        ucSheet,
-        ucTarget._rowIndex,
-        ucHeaderMap,
-        'is_active',
-        nextActive
-      );
-      updateRowCell(
-        ucSheet,
-        ucTarget._rowIndex,
-        ucHeaderMap,
-        'updated_at',
-        nowTs
-      );
+      var deletedId = String(deleteTarget.id || '');
+      var deletedPass = String(deleteTarget.pass_number || '');
+      dSheet.deleteRow(deleteTarget._rowIndex);
 
       return jsonOutput({
         ok: true,
         data: {
-          id: String(ucTarget.id),
-          full_name: String(nextName),
-          phone_number: String(nextPhone),
-          role: String(ucTarget.role),
-          is_active: Boolean(nextActive),
-          created_at: toIsoString(ucTarget.created_at),
-          updated_at: nowTs,
+          deleted: true,
+          id: deletedId,
+          pass_number: deletedPass,
         },
       });
-    }
-
-    if (action === 'resetCoordinatorPasscode') {
-      lock.waitLock(15000);
-      var rpSheet = ensureSheet(SHEET_ADMINS, ADMIN_HEADERS);
-      var rpRows = sheetRowsToObjects(rpSheet);
-      var rpHeaderMap = getHeaderMap(rpSheet);
-      var rpTarget = null;
-      for (var z = 0; z < rpRows.length; z++) {
-        if (String(rpRows[z].id) === String(payload.id)) {
-          rpTarget = rpRows[z];
-          break;
-        }
-      }
-      if (!rpTarget) {
-        return jsonOutput({
-          ok: false,
-          status: 404,
-          error: 'Account not found.',
-        });
-      }
-      if (String(rpTarget.role) === 'super_admin') {
-        return jsonOutput({
-          ok: false,
-          status: 400,
-          error: 'Cannot reset Super Admin passcode from coordinator panel.',
-        });
-      }
-      updateRowCell(
-        rpSheet,
-        rpTarget._rowIndex,
-        rpHeaderMap,
-        'passcode',
-        "'" + String(payload.passcode || '')
-      );
-      updateRowCell(
-        rpSheet,
-        rpTarget._rowIndex,
-        rpHeaderMap,
-        'updated_at',
-        new Date().toISOString()
-      );
-      return jsonOutput({ ok: true, data: { ok: true } });
     }
 
     return jsonOutput({ ok: false, error: 'Unknown action: ' + action });

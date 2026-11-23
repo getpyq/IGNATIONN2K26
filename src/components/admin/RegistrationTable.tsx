@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
+  AlertCircle,
   ArrowUpDown,
   Check,
   ChevronLeft,
@@ -9,9 +10,11 @@ import {
   Edit3,
   Filter,
   Search,
+  Trash2,
   Users,
   X,
 } from 'lucide-react';
+import { ConfirmDialog } from '../common/ConfirmDialog.tsx';
 import { EmptyState } from '../common/EmptyState.tsx';
 import { formatDateTime, formatFoodLabel } from '../../lib/utils.ts';
 import {
@@ -40,6 +43,7 @@ export function RegistrationTable({
   onPageChange,
   onResetFilters,
   onSaveEdit,
+  onDeleteRecord,
 }: {
   items: RegistrationRecord[];
   total: number;
@@ -68,6 +72,7 @@ export function RegistrationTable({
       food_preference: FoodPreference;
     }
   ) => Promise<void>;
+  onDeleteRecord: (id: string) => Promise<void>;
 }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<RegistrationRecord | null>(null);
@@ -84,6 +89,10 @@ export function RegistrationTable({
   });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [deletingTarget, setDeletingTarget] =
+    useState<RegistrationRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleCopyId = async (regId: string) => {
     try {
@@ -144,8 +153,46 @@ export function RegistrationTable({
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deletingTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await onDeleteRecord(deletingTarget.id);
+      setDeletingTarget(null);
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to permanently delete registration.'
+      );
+      setDeletingTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {deleteError && (
+        <div
+          role="alert"
+          className="flex items-start justify-between gap-3 rounded-2xl border-2 border-[#c8221a] bg-white p-4 text-xs font-bold text-[#c8221a] shadow-[4px_4px_0_0_#1b1b1b]"
+        >
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#c8221a]" />
+            <span>{deleteError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDeleteError(null)}
+            aria-label="Dismiss delete error"
+            className="rounded p-0.5 text-[#5a0f14] hover:bg-[#fff4e2]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {/* Search and Filters Bar */}
       <div className="rounded-2xl border-2 border-[#1b1b1b] bg-[#fffaf0] p-4 shadow-[4px_4px_0_0_#1b1b1b]">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -380,7 +427,7 @@ export function RegistrationTable({
                     </td>
                     {isSuperAdmin && (
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => openEditModal(r)}
@@ -389,6 +436,18 @@ export function RegistrationTable({
                           >
                             <Edit3 className="h-3.5 w-3.5" />
                             <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeletingTarget(r);
+                            }}
+                            title="Delete registration permanently from Google Sheet"
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#c8221a]/30 bg-white px-2.5 py-1.5 text-xs font-bold text-[#c8221a] hover:border-[#c8221a] hover:bg-[#c8221a] hover:text-white"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </td>
@@ -566,6 +625,27 @@ export function RegistrationTable({
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      {/* Admin Permanent Delete Confirmation */}
+      <ConfirmDialog
+        open={Boolean(deletingTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) {
+            setDeletingTarget(null);
+          }
+        }}
+        title="Delete Registration Permanently?"
+        description={
+          deletingTarget
+            ? `Permanently delete ${deletingTarget.student_name} (${deletingTarget.pass_number})? This removes the row directly from Google Sheets and cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete Permanently"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </div>
   );
 }

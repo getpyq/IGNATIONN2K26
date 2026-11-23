@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   LogOut,
   QrCode,
-  ShieldCheck,
   Users,
   X,
 } from 'lucide-react';
@@ -13,7 +12,6 @@ interface NavItem {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
-  superAdminOnly?: boolean;
   end?: boolean;
 }
 
@@ -21,12 +19,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/admin/scanner', label: 'Check-In Scanner', icon: QrCode },
   { to: '/admin/registrations', label: 'Registrations', icon: Users },
-  {
-    to: '/admin/coordinators',
-    label: 'Coordinator Management',
-    icon: ShieldCheck,
-    superAdminOnly: true,
-  },
 ];
 
 export function AdminSidebar({
@@ -42,10 +34,7 @@ export function AdminSidebar({
   onCloseMobile: () => void;
   onLogout: () => void;
 }) {
-  const isSuperAdmin = admin.role === 'super_admin';
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.superAdminOnly || isSuperAdmin
-  );
+  const visibleItems = NAV_ITEMS;
 
   const sidebarContent = (
     <div className="halftone flex h-full flex-col justify-between border-r-2 border-[#1b1b1b] bg-[#8e1b1b] px-4 py-6 text-[#fff4e2]">
@@ -56,7 +45,7 @@ export function AdminSidebar({
               {eventName}
             </p>
             <p className="mt-0.5 text-[11px] font-semibold text-[#ffe066]">
-              Organizer Console
+              Admin Console
             </p>
           </div>
           <button

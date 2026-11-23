@@ -4,6 +4,7 @@ import { RegistrationTable } from '../../components/admin/RegistrationTable.tsx'
 import { useAuth } from '../../hooks/useAuth.tsx';
 import { useEventSettings } from '../../hooks/useEventSettings.ts';
 import {
+  deleteRegistrationByAdmin,
   fetchRegistrations,
   updateRegistrationBySuperAdmin,
 } from '../../services/adminService.ts';
@@ -118,6 +119,18 @@ export function Registrations() {
     setItems((prev) => prev.map((r) => (r.id === id ? updated : r)));
   };
 
+  const handleDeleteRecord = async (id: string) => {
+    await deleteRegistrationByAdmin(id);
+    const shouldStepBack = items.length <= 1 && page > 1;
+    setItems((prev) => prev.filter((r) => r.id !== id));
+    setTotal((prev) => Math.max(0, prev - 1));
+    if (shouldStepBack) {
+      setPage((prev) => Math.max(1, prev - 1));
+    } else {
+      void load(true);
+    }
+  };
+
   return (
     <AdminLayout pageTitle="Registrations">
       <div className="space-y-4">
@@ -126,7 +139,7 @@ export function Registrations() {
             Registration Management
           </h2>
           <p className="mt-1 text-sm text-[#4a4642]">
-            Search, filter, and edit student registration records.
+            Search, filter, edit, or permanently delete student registration records.
           </p>
         </div>
 
@@ -159,6 +172,7 @@ export function Registrations() {
           onPageChange={setPage}
           onResetFilters={handleResetFilters}
           onSaveEdit={handleSaveEdit}
+          onDeleteRecord={handleDeleteRecord}
         />
       </div>
     </AdminLayout>
