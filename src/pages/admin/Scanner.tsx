@@ -31,7 +31,7 @@ import {
 } from '../../services/adminService.ts';
 import type { RegistrationRecord } from '../../types/database.types.ts';
 
-const SCANNER_ELEMENT_ID = 'ignition-qr-barcode-reader';
+const SCANNER_ELEMENT_ID = 'ignition-qr-reader';
 
 function extractCameraErrorMessage(err: unknown): string {
   const raw =
@@ -378,7 +378,7 @@ export function Scanner() {
       }
       recentScansRef.current.set(code, now);
 
-      // 1) Play scan sound IMMEDIATELY when QR/barcode is decoded
+      // 1) Play scan sound IMMEDIATELY when QR code is decoded
       playScanBeep();
 
       // 2) Optimistic local match so check-in feedback is instant
@@ -449,42 +449,6 @@ export function Scanner() {
     [applyCheckInResult, playScanBeep]
   );
 
-  // Hardware USB/Bluetooth barcode scanner wedge listener
-  useEffect(() => {
-    let buffer = '';
-    let lastKeyAt = 0;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      const now = Date.now();
-      if (now - lastKeyAt > 120) {
-        buffer = '';
-      }
-      lastKeyAt = now;
-
-      if (e.key === 'Enter') {
-        if (buffer.length >= 6) {
-          handleScannedString(buffer);
-        }
-        buffer = '';
-      } else if (e.key.length === 1) {
-        buffer += e.key;
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleScannedString]);
-
   const startCamera = useCallback(async () => {
     unlockAudio();
     setCameraError(null);
@@ -497,20 +461,14 @@ export function Scanner() {
         typeof navigator.mediaDevices.getUserMedia !== 'function'
       ) {
         throw new Error(
-          'Live camera API is unavailable in this browser context. Open this page in a new HTTPS tab or use Scan Photo.'
+          'Live camera API is unavailable in this browser context. Open this page in a new HTTPS tab.'
         );
       }
 
       await stopCamera();
 
       const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.ITF,
-          Html5QrcodeSupportedFormats.EAN_13,
-        ],
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
         experimentalFeatures: {
           useBarCodeDetectorIfSupported: true,
         },
@@ -518,16 +476,18 @@ export function Scanner() {
       });
       scannerRef.current = scanner;
 
-      const wideQrBox = (viewfinderWidth: number, viewfinderHeight: number) => {
-        const width = Math.max(220, Math.floor(viewfinderWidth * 0.92));
-        const height = Math.max(150, Math.floor(viewfinderHeight * 0.72));
-        return { width, height };
+      const squareQrBox = (viewfinderWidth: number, viewfinderHeight: number) => {
+        const edge = Math.max(
+          200,
+          Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72)
+        );
+        return { width: edge, height: edge };
       };
 
       const hdConfig = {
         fps: 20,
         disableFlip: false,
-        qrbox: wideQrBox,
+        qrbox: squareQrBox,
         videoConstraints: {
           facingMode: { ideal: 'environment' },
           width: { ideal: 1280 },
@@ -538,7 +498,7 @@ export function Scanner() {
       const fallbackConfig = {
         fps: 20,
         disableFlip: false,
-        qrbox: wideQrBox,
+        qrbox: squareQrBox,
       };
 
       const attempts: Array<{
@@ -669,10 +629,10 @@ export function Scanner() {
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border-2 border-[#1b1b1b] bg-[#fffaf0] p-4 shadow-[4px_4px_0_0_#1b1b1b]">
           <div>
             <h2 className="font-heading text-lg font-extrabold text-[#5a0f14]">
-              QR &amp; Barcode Event Check-In
+              QR Code Event Check-In
             </h2>
             <p className="text-xs text-[#4a4642]">
-              Scan student QR codes or barcodes to automatically mark{' '}
+              Scan student QR codes to automatically mark{' '}
               <strong className="text-[#3e9b47]">Events Joined</strong>.
             </p>
           </div>
@@ -728,10 +688,10 @@ export function Scanner() {
 
         {/* Main 2-Column Check-In Workspace */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Left: Embedded Camera QR/Barcode Scanner */}
+          {/* Left: Embedded Camera QR Scanner */}
           <div className="lg:col-span-6">
             <div className="rounded-2xl border-2 border-[#1b1b1b] bg-[#fffaf0] p-4 shadow-[4px_4px_0_0_#1b1b1b] sm:p-5">
-              {/* Single QR & Barcode Scan Viewport */}
+              {/* Single QR Scan Viewport */}
               <div className="relative min-h-[290px] overflow-hidden rounded-xl border-2 border-[#1b1b1b] bg-[#1b1b1b]">
                 <div id={SCANNER_ELEMENT_ID} className="w-full" />
 
@@ -742,10 +702,10 @@ export function Scanner() {
                     </div>
                     <div>
                       <p className="font-heading text-sm font-extrabold text-[#fff4e2]">
-                        QR &amp; Barcode Scanner
+                        QR Code Scanner
                       </p>
                       <p className="mt-1 text-xs text-[#fff4e2]/75">
-                        Point camera at student QR code or barcode for instant check-in.
+                        Point camera at student QR code for instant check-in.
                       </p>
                     </div>
                     <button

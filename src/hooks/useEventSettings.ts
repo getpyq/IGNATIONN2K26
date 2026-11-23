@@ -5,7 +5,7 @@ import type { EventSettings } from '../types/database.types.ts';
 export const DEFAULT_SETTINGS: EventSettings = {
   id: 'default',
   event_name: 'IGNITION 2K26',
-  event_tagline: 'THE SURPRISE CELEBRATION',
+  event_tagline: 'THE FRESHERS WELCOME CELEBRATION',
   department_name: 'Department of Mechanical Engineering',
   institution_name: 'Parala Maharaja Engineering College',
   event_date: '5 December 2026 · 10:00 AM',

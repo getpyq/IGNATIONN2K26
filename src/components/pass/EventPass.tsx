@@ -1,7 +1,6 @@
-import { forwardRef, useMemo } from 'react';
+import { forwardRef } from 'react';
 import { CalendarDays, Leaf, MapPin, Utensils } from 'lucide-react';
 import { QRCodeDisplay } from './QRCodeDisplay.tsx';
-import { encodeCode128B } from '../../lib/barcode.ts';
 import { formatFoodLabel } from '../../lib/utils.ts';
 import type { EventSettings, FoodPreference } from '../../types/database.types.ts';
 
@@ -31,32 +30,23 @@ export const EventPass = forwardRef<
     )
     .join(', ');
 
-  const barcode = useMemo(
-    () => encodeCode128B(data.pass_number),
-    [data.pass_number]
-  );
-
   return (
     <div
       ref={ref}
       className={`relative w-full max-w-[400px] overflow-hidden rounded-2xl border-2 border-[#1b1b1b] bg-[#fffaf0] text-[#5a0f14] shadow-[8px_8px_0_0_#1b1b1b] select-none ${className}`}
     >
-      {/* Top Pipili Crimson & Turmeric Band (Single-Line Event Header) */}
+      {/* Top Pipili Crimson & Turmeric Band */}
       <div className="halftone border-b-2 border-[#1b1b1b] bg-[#8e1b1b] px-5 py-4 text-[#fff4e2]">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="font-brand text-[9px] font-bold tracking-[0.2em] uppercase text-[#ffe066] truncate">
-              {settings.event_tagline}
-            </p>
-            <h2 className="mt-0.5 font-brand text-xl font-extrabold leading-none tracking-tight text-[#fff4e2] whitespace-nowrap sm:text-2xl">
-              {settings.event_name}
-            </h2>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="text-[9px] font-bold tracking-[0.14em] uppercase text-[#ffe066] whitespace-nowrap">
-              YOU ARE INVITED!
-            </p>
-          </div>
+        <p className="font-brand text-[10px] font-bold tracking-[0.14em] uppercase text-[#ffe066]">
+          {settings.event_tagline}
+        </p>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <h2 className="font-brand text-xl font-extrabold leading-none tracking-tight text-[#fff4e2] whitespace-nowrap sm:text-2xl">
+            {settings.event_name}
+          </h2>
+          <p className="shrink-0 text-[9px] font-bold tracking-[0.14em] uppercase text-[#ffe066] whitespace-nowrap">
+            YOU ARE INVITED!
+          </p>
         </div>
       </div>
 
@@ -138,7 +128,7 @@ export const EventPass = forwardRef<
         <div className="h-6 w-3 rounded-l-full border-y-2 border-l-2 border-[#1b1b1b] bg-[#fff4e2]" />
       </div>
 
-      {/* Lower Stub: Registration No + QR Code + Full-Width Scannable Code128 Barcode */}
+      {/* Lower Stub: Registration No + QR Code */}
       <div className="px-6 pt-3 pb-5">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1 space-y-1.5">
@@ -149,7 +139,7 @@ export const EventPass = forwardRef<
               {data.pass_number}
             </p>
             <p className="text-[11px] font-medium text-[#4a4642]">
-              Scan QR code or barcode at entry gate
+              Scan QR code at entry gate
             </p>
           </div>
 
@@ -157,42 +147,9 @@ export const EventPass = forwardRef<
             <QRCodeDisplay
               token={data.verification_token}
               passNumber={data.pass_number}
-              size={98}
+              size={104}
             />
           </div>
-        </div>
-
-        {/* Full-Width Scannable ISO Code 128B Barcode */}
-        <div className="mt-3 rounded-xl border-2 border-[#1b1b1b]/25 bg-white px-2.5 py-2">
-          <svg
-            viewBox={`0 0 ${barcode.totalWidth} 48`}
-            className="h-12 w-full"
-            preserveAspectRatio="none"
-            shapeRendering="crispEdges"
-            role="img"
-            aria-label={`Barcode for ${data.pass_number}`}
-          >
-            <rect
-              x={0}
-              y={0}
-              width={barcode.totalWidth}
-              height={48}
-              fill="#ffffff"
-            />
-            {barcode.bars.map((bar, idx) => (
-              <rect
-                key={idx}
-                x={bar.x}
-                y={2}
-                width={bar.w}
-                height={44}
-                fill="#000000"
-              />
-            ))}
-          </svg>
-          <p className="mt-1 text-center font-mono-tabular text-[10px] font-bold tracking-[0.22em] text-[#000000]">
-            {data.pass_number}
-          </p>
         </div>
 
         <p className="mt-4 border-t-2 border-[#1b1b1b]/15 pt-3 text-center font-heading text-[10px] font-extrabold tracking-[0.2em] uppercase text-[#8e1b1b]">
