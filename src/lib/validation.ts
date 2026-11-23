@@ -80,3 +80,23 @@ export const adminBootstrapSchema = z.object({
   phone_number: phoneSchema,
   passcode: passcodeSchema,
 });
+
+export const createCoordinatorSchema = z.object({
+  full_name: z
+    .string()
+    .trim()
+    .min(2, 'Coordinator name is required.')
+    .max(80, 'Name must be 80 characters or fewer.'),
+  phone_number: phoneSchema,
+  passcode: passcodeSchema,
+});
+
+export const updateCoordinatorSchema = z.object({
+  full_name: z.string().trim().min(2).max(80).optional(),
+  phone_number: phoneSchema.optional(),
+  is_active: z.boolean().optional(),
+});
+
+export const resetPasscodeSchema = z.object({
+  passcode: passcodeSchema,
+});

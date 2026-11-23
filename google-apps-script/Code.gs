@@ -171,6 +171,10 @@ function toIsoString(val) {
   return String(val);
 }
 
+function normalizePhone(val) {
+  return String(val || '').trim().replace(/[\s-]/g, '');
+}
+
 function getRegistrationCount() {
   ensureAllSheets();
   var regSheet = ensureSheet(SHEET_REGISTRATIONS, REG_HEADERS);
@@ -481,9 +485,10 @@ function doPost(e) {
     if (action === 'adminFindByPhone') {
       var pSheet = ensureSheet(SHEET_ADMINS, ADMIN_HEADERS);
       var pRows = sheetRowsToObjects(pSheet);
+      var targetPhone = normalizePhone(payload.phone_number);
       var foundPhone = null;
       for (var m = 0; m < pRows.length; m++) {
-        if (String(pRows[m].phone_number).trim() === String(payload.phone_number).trim()) {
+        if (normalizePhone(pRows[m].phone_number) === targetPhone) {
           foundPhone = mapAdminObject(pRows[m]);
           break;
         }
@@ -620,6 +625,206 @@ function doPost(e) {
           pass_number: deletedPass,
         },
       });
+    }
+
+    if (action === 'listCoordinators') {
+      var cSheet = ensureSheet(SHEET_ADMINS, ADMIN_HEADERS);
+      var cRows = sheetRowsToObjects(cSheet);
+      var items = cRows.map(function (r) {
+        var obj = mapAdminObject(r);
+        delete obj.passcode;
+        return obj;
+      });
+      return jsonOutput({ ok: true, data: items });
+    }
+
+    if (action === 'createCoordinator') {
+      lock.waitLock(15000);
+      var ncSheet = ensureSheet(SHEET_ADMINS, ADMIN_HEADERS);
+      var ncRows = sheetRowsToObjects(ncSheet);
+      var cleanNewPhone = normalizePhone(payload.phone_number);
+      var existsPhone = ncRows.some(function (r) {
+        return normalizePhone(r.phone_number) === cleanNewPhone;
+      });
+      if (existsPhone) {
+        return jsonOutput({
+          ok: false,
+          status: 409,
+          error: 'An account with this mobile number already exists.',
+        });
+      }
+      var coordId = Utilities.getUuid();
+      var ts = new Date().toISOString();
+      appendObjectRow(ncSheet, ADMIN_HEADERS, {
+        id: coordId,
+        full_name: String(payload.full_name || '').trim(),
+        phone_number: "'" + cleanNewPhone,
+        passcode: "'" + String(payload.passcode || '').trim(),
+        role: 'coordinator',
+        is_active: true,
+        created_at: ts,
+        updated_at: ts,
+      });
+      return jsonOutput({
+        ok: true,
+        data: {
+          id: coordId,
+          full_name: String(payload.full_name || '').trim(),
+          phone_number: cleanNewPhone,
+          role: 'coordinator',
+          is_active: true,
+          created_at: ts,
+          updated_at: ts,
+        },
+      });
+    }
+
+    if (action === 'updateCoordinator') {
+      lock.waitLock(15000);
+      var ucSheet = ensureSheet(SHEET_ADMINS, ADMIN_HEADERS);
+      var ucRows = sheetRowsToObjects(ucSheet);
+      var ucHeaderMap = getHeaderMap(ucSheet);
+      var ucTarget = null;
+      for (var q = 0; q < ucRows.length; q++) {
+        if (String(ucRows[q].id) === String(payload.id)) {
+          ucTarget = ucRows[q];
+          break;
+        }
+      }
+      if (!ucTarget) {
+        return jsonOutput({
+          ok: false,
+          status: 404,
+          error: 'Coordinator account not found.',
+        });
+      }
+      if (
+        String(ucTarget.role) === 'super_admin' &&
+        payload.is_active === false
+      ) {
+        return jsonOutput({
+          ok: false,
+          status: 400,
+          error: 'The active Admin account cannot be deactivated.',
+        });
+      }
+      if (payload.phone_number !== undefined) {
+        var cleanNextPhone = normalizePhone(payload.phone_number);
+        if (cleanNextPhone !== normalizePhone(ucTarget.phone_number)) {
+          var dupPhone = ucRows.some(function (r) {
+            return (
+              normalizePhone(r.phone_number) === cleanNextPhone &&
+              String(r.id) !== String(payload.id)
+            );
+          });
+          if (dupPhone) {
+            return jsonOutput({
+              ok: false,
+              status: 409,
+              error: 'Mobile number is already assigned to another account.',
+            });
+          }
+        }
+      }
+
+      var nowTs = new Date().toISOString();
+      var nextName =
+        payload.full_name !== undefined
+          ? String(payload.full_name).trim()
+          : ucTarget.full_name;
+      var nextPhone =
+        payload.phone_number !== undefined
+          ? normalizePhone(payload.phone_number)
+          : normalizePhone(ucTarget.phone_number);
+      var nextActive =
+        payload.is_active !== undefined
+          ? Boolean(payload.is_active)
+          : toBool(ucTarget.is_active);
+
+      updateRowCell(
+        ucSheet,
+        ucTarget._rowIndex,
+        ucHeaderMap,
+        'full_name',
+        nextName
+      );
+      updateRowCell(
+        ucSheet,
+        ucTarget._rowIndex,
+        ucHeaderMap,
+        'phone_number',
+        "'" + nextPhone
+      );
+      updateRowCell(
+        ucSheet,
+        ucTarget._rowIndex,
+        ucHeaderMap,
+        'is_active',
+        nextActive
+      );
+      updateRowCell(
+        ucSheet,
+        ucTarget._rowIndex,
+        ucHeaderMap,
+        'updated_at',
+        nowTs
+      );
+
+      return jsonOutput({
+        ok: true,
+        data: {
+          id: String(ucTarget.id),
+          full_name: String(nextName),
+          phone_number: String(nextPhone),
+          role: String(ucTarget.role),
+          is_active: Boolean(nextActive),
+          created_at: toIsoString(ucTarget.created_at),
+          updated_at: nowTs,
+        },
+      });
+    }
+
+    if (action === 'resetCoordinatorPasscode') {
+      lock.waitLock(15000);
+      var rpSheet = ensureSheet(SHEET_ADMINS, ADMIN_HEADERS);
+      var rpRows = sheetRowsToObjects(rpSheet);
+      var rpHeaderMap = getHeaderMap(rpSheet);
+      var rpTarget = null;
+      for (var z = 0; z < rpRows.length; z++) {
+        if (String(rpRows[z].id) === String(payload.id)) {
+          rpTarget = rpRows[z];
+          break;
+        }
+      }
+      if (!rpTarget) {
+        return jsonOutput({
+          ok: false,
+          status: 404,
+          error: 'Coordinator account not found.',
+        });
+      }
+      if (String(rpTarget.role) === 'super_admin') {
+        return jsonOutput({
+          ok: false,
+          status: 400,
+          error: 'Cannot reset Admin passcode from coordinator panel.',
+        });
+      }
+      updateRowCell(
+        rpSheet,
+        rpTarget._rowIndex,
+        rpHeaderMap,
+        'passcode',
+        "'" + String(payload.passcode || '').trim()
+      );
+      updateRowCell(
+        rpSheet,
+        rpTarget._rowIndex,
+        rpHeaderMap,
+        'updated_at',
+        new Date().toISOString()
+      );
+      return jsonOutput({ ok: true, data: { ok: true } });
     }
 
     return jsonOutput({ ok: false, error: 'Unknown action: ' + action });

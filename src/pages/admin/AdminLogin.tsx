@@ -137,15 +137,15 @@ export function AdminLogin() {
             {!configured
               ? 'GOOGLE SHEETS SETUP REQUIRED'
               : initialized
-                ? 'ADMIN LOGIN'
+                ? 'ADMIN & COORDINATOR LOGIN'
                 : 'FIRST-TIME ADMIN SETUP'}
           </h1>
           <p className="mt-1.5 text-sm text-[#4a4642]">
             {!configured
               ? 'Connect your Google Apps Script Web App URL to activate real-time sheet storage.'
               : initialized
-                ? 'Sign in with your Admin phone number and 6-digit passcode.'
-                : 'No Admin account exists yet. Create the primary Admin account once to unlock the admin dashboard.'}
+                ? 'Sign in with your Admin or Coordinator phone number and 6-digit passcode.'
+                : 'No Admin account exists yet. Create the primary Admin account once to unlock the portal.'}
           </p>
         </div>
 

@@ -23,17 +23,17 @@ export function AdminLayout({
   if (loading) {
     return (
       <div className="halftone-ink min-h-screen bg-[#fff4e2] text-[#5a0f14]">
-        <LoadingScreen message="Verifying admin session..." />
+        <LoadingScreen message="Verifying portal session..." />
       </div>
     );
   }
 
-  if (!admin || admin.role !== 'super_admin') {
+  if (!admin) {
     return <Navigate to="/admin/login" replace />;
   }
 
   if (requireSuperAdmin && admin.role !== 'super_admin') {
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/admin" replace />;
   }
 
   const handleLogout = async () => {

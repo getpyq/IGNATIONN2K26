@@ -363,9 +363,7 @@ export function RegistrationTable({
                       />
                     </button>
                   </th>
-                  {isSuperAdmin && (
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  )}
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1b1b1b]/15 bg-white">
@@ -425,18 +423,18 @@ export function RegistrationTable({
                     <td className="px-4 py-3 font-mono-tabular text-xs text-[#4a4642] whitespace-nowrap">
                       {formatDateTime(r.created_at)}
                     </td>
-                    {isSuperAdmin && (
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(r)}
-                            title="Edit registration details"
-                            className="inline-flex items-center gap-1 rounded-lg border border-[#1b1b1b]/20 bg-[#fffaf0] px-2.5 py-1.5 text-xs font-bold text-[#5a0f14] hover:border-[#1b1b1b] hover:bg-[#ffe066]/40 hover:text-[#c8221a]"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                            <span>Edit</span>
-                          </button>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(r)}
+                          title="Edit registration details"
+                          className="inline-flex items-center gap-1 rounded-lg border border-[#1b1b1b]/20 bg-[#fffaf0] px-2.5 py-1.5 text-xs font-bold text-[#5a0f14] hover:border-[#1b1b1b] hover:bg-[#ffe066]/40 hover:text-[#c8221a]"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          <span>Edit</span>
+                        </button>
+                        {isSuperAdmin && (
                           <button
                             type="button"
                             onClick={() => {
@@ -449,9 +447,9 @@ export function RegistrationTable({
                             <Trash2 className="h-3.5 w-3.5" />
                             <span>Delete</span>
                           </button>
-                        </div>
-                      </td>
-                    )}
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -627,25 +625,27 @@ export function RegistrationTable({
       </Dialog.Root>
 
       {/* Admin Permanent Delete Confirmation */}
-      <ConfirmDialog
-        open={Boolean(deletingTarget)}
-        onOpenChange={(open) => {
-          if (!open && !deleting) {
-            setDeletingTarget(null);
+      {isSuperAdmin && (
+        <ConfirmDialog
+          open={Boolean(deletingTarget)}
+          onOpenChange={(open) => {
+            if (!open && !deleting) {
+              setDeletingTarget(null);
+            }
+          }}
+          title="Delete Registration Permanently?"
+          description={
+            deletingTarget
+              ? `Permanently delete ${deletingTarget.student_name} (${deletingTarget.pass_number})? This removes the row directly from Google Sheets and cannot be undone.`
+              : ''
           }
-        }}
-        title="Delete Registration Permanently?"
-        description={
-          deletingTarget
-            ? `Permanently delete ${deletingTarget.student_name} (${deletingTarget.pass_number})? This removes the row directly from Google Sheets and cannot be undone.`
-            : ''
-        }
-        confirmLabel="Delete Permanently"
-        cancelLabel="Cancel"
-        variant="danger"
-        loading={deleting}
-        onConfirm={() => void handleConfirmDelete()}
-      />
+          confirmLabel="Delete Permanently"
+          cancelLabel="Cancel"
+          variant="danger"
+          loading={deleting}
+          onConfirm={() => void handleConfirmDelete()}
+        />
+      )}
     </div>
   );
 }

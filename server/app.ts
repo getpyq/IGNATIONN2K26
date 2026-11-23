@@ -14,7 +14,10 @@ import {
 import {
   adminBootstrapSchema,
   adminLoginSchema,
+  createCoordinatorSchema,
   registrationSubmissionSchema,
+  resetPasscodeSchema,
+  updateCoordinatorSchema,
 } from '../src/lib/validation.ts';
 import type {
   AdminAccountPublic,
@@ -367,9 +370,12 @@ async function requireAdmin(
         .json({ error: 'Invalid authentication token. Please sign in again.' });
     }
 
-    if (!adminRow.is_active || adminRow.role !== 'super_admin') {
+    if (
+      !adminRow.is_active ||
+      (adminRow.role !== 'super_admin' && adminRow.role !== 'coordinator')
+    ) {
       return res.status(403).json({
-        error: 'Forbidden: Only the Admin account is authorized.',
+        error: 'Account inactive or revoked.',
       });
     }
     req.admin = sanitizeAdmin(adminRow);
@@ -754,9 +760,15 @@ export function createApp() {
         });
       }
 
-      if (!adminRow.is_active || adminRow.role !== 'super_admin') {
+      if (!adminRow.is_active) {
         return res.status(403).json({
-          error: 'Only the Admin account is authorized to access this portal.',
+          error: 'This coordinator account has been deactivated by the Admin.',
+        });
+      }
+
+      if (adminRow.role !== 'super_admin' && adminRow.role !== 'coordinator') {
+        return res.status(403).json({
+          error: 'Account role is not authorized for portal access.',
         });
       }
 
@@ -997,11 +1009,10 @@ export function createApp() {
     }
   );
 
-  // Super Admin ONLY: Edit student registration details
+  // Admin & Coordinator: Edit student registration details
   app.patch(
     '/api/admin/registrations/:id',
     requireAdmin,
-    requireSuperAdmin,
     async (req, res) => {
       const id = String(req.params.id || '');
       const parsed = registrationSubmissionSchema.safeParse(req.body);
@@ -1079,6 +1090,109 @@ export function createApp() {
           err,
           'Failed to permanently delete registration record.'
         );
+      }
+    }
+  );
+
+  // Admin ONLY: Coordinator Management
+  app.get(
+    '/api/admin/coordinators',
+    requireAdmin,
+    requireSuperAdmin,
+    async (_req, res) => {
+      try {
+        const items = await callAppsScript<AdminAccountPublic[]>(
+          'listCoordinators'
+        );
+        return res.json({ items: items || [] });
+      } catch (err) {
+        return handleRouteError(res, err, 'Failed to load coordinators.');
+      }
+    }
+  );
+
+  app.post(
+    '/api/admin/coordinators',
+    requireAdmin,
+    requireSuperAdmin,
+    async (req, res) => {
+      const parsed = createCoordinatorSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error:
+            parsed.error.issues[0]?.message || 'Invalid coordinator details.',
+        });
+      }
+
+      try {
+        const created = await callAppsScript<AdminAccountPublic>(
+          'createCoordinator',
+          {
+            full_name: parsed.data.full_name,
+            phone_number: parsed.data.phone_number,
+            passcode: parsed.data.passcode,
+          }
+        );
+        return res.status(201).json(created);
+      } catch (err) {
+        return handleRouteError(res, err, 'Failed to create coordinator.');
+      }
+    }
+  );
+
+  app.patch(
+    '/api/admin/coordinators/:id',
+    requireAdmin,
+    requireSuperAdmin,
+    async (req, res) => {
+      const id = String(req.params.id || '');
+      const parsed = updateCoordinatorSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || 'Invalid update fields.',
+        });
+      }
+
+      try {
+        const updated = await callAppsScript<AdminAccountPublic>(
+          'updateCoordinator',
+          {
+            id,
+            full_name: parsed.data.full_name,
+            phone_number: parsed.data.phone_number,
+            is_active: parsed.data.is_active,
+          }
+        );
+        invalidateAdminCache(id);
+        return res.json(updated);
+      } catch (err) {
+        return handleRouteError(res, err, 'Failed to update coordinator.');
+      }
+    }
+  );
+
+  app.post(
+    '/api/admin/coordinators/:id/reset-passcode',
+    requireAdmin,
+    requireSuperAdmin,
+    async (req, res) => {
+      const id = String(req.params.id || '');
+      const parsed = resetPasscodeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || 'Invalid passcode.',
+        });
+      }
+
+      try {
+        await callAppsScript<{ ok: boolean }>('resetCoordinatorPasscode', {
+          id,
+          passcode: parsed.data.passcode,
+        });
+        invalidateAdminCache(id);
+        return res.json({ ok: true });
+      } catch (err) {
+        return handleRouteError(res, err, 'Failed to reset passcode.');
       }
     }
   );

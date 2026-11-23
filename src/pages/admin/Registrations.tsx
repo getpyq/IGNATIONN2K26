@@ -139,7 +139,9 @@ export function Registrations() {
             Registration Management
           </h2>
           <p className="mt-1 text-sm text-[#4a4642]">
-            Search, filter, edit, or permanently delete student registration records.
+            {admin?.role === 'super_admin'
+              ? 'Search, filter, edit, or permanently delete student registration records.'
+              : 'Search, filter, view, and edit student registration records.'}
           </p>
         </div>
 

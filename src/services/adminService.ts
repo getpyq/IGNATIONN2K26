@@ -185,3 +185,51 @@ export async function fetchCheckInList(): Promise<CheckInListResponse> {
   cachedCheckInList = data;
   return data;
 }
+
+export async function fetchCoordinators(): Promise<AdminAccountPublic[]> {
+  const res = await apiFetch<{ items: AdminAccountPublic[] }>(
+    '/api/admin/coordinators'
+  );
+  return Array.isArray(res.items) ? res.items : [];
+}
+
+export async function createCoordinator(payload: {
+  full_name: string;
+  phone_number: string;
+  passcode: string;
+}): Promise<AdminAccountPublic> {
+  return apiFetch<AdminAccountPublic>('/api/admin/coordinators', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCoordinator(
+  id: string,
+  payload: {
+    full_name?: string;
+    phone_number?: string;
+    is_active?: boolean;
+  }
+): Promise<AdminAccountPublic> {
+  return apiFetch<AdminAccountPublic>(
+    `/api/admin/coordinators/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function resetCoordinatorPasscode(
+  id: string,
+  passcode: string
+): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(
+    `/api/admin/coordinators/${encodeURIComponent(id)}/reset-passcode`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ passcode }),
+    }
+  );
+}
