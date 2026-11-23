@@ -2,19 +2,7 @@ import crypto from 'node:crypto';
 import type { AdminRole } from '../src/types/database.types.ts';
 
 declare global {
-  var _ignitionSigningKey: string | undefined;
   var _ignitionRateLimits: Map<string, number[]> | undefined;
-}
-
-function getSigningKey(): string {
-  const envSecret = process.env.SESSION_SECRET?.trim();
-  if (envSecret) {
-    return crypto.createHash('sha256').update(envSecret).digest('hex');
-  }
-  if (!globalThis._ignitionSigningKey) {
-    globalThis._ignitionSigningKey = crypto.randomBytes(32).toString('hex');
-  }
-  return globalThis._ignitionSigningKey;
 }
 
 export interface SessionPayload {
@@ -23,36 +11,40 @@ export interface SessionPayload {
   iat: number;
 }
 
-export function signSessionToken(adminId: string, role: AdminRole): string {
+function deriveAdminSigningKey(adminId: string, passcode: string): string {
+  const envSecret = process.env.SESSION_SECRET?.trim() || '';
+  return crypto
+    .createHash('sha256')
+    .update(`${envSecret}|${adminId.trim()}|${passcode.trim()}`)
+    .digest('hex');
+}
+
+export function signSessionTokenForAdmin(
+  adminId: string,
+  role: AdminRole,
+  passcode: string
+): string {
   const payload: SessionPayload = {
     sub: adminId,
     role,
     iat: Date.now(),
   };
-  const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString(
+    'base64url'
+  );
   const sig = crypto
-    .createHmac('sha256', getSigningKey())
+    .createHmac('sha256', deriveAdminSigningKey(adminId, passcode))
     .update(encoded)
     .digest('base64url');
   return `${encoded}.${sig}`;
 }
 
-export function verifySessionToken(token: string): SessionPayload | null {
+export function parseSessionToken(token: string): SessionPayload | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 2) return null;
     const [encoded, sig] = parts;
     if (!encoded || !sig) return null;
-
-    const expectedSig = crypto
-      .createHmac('sha256', getSigningKey())
-      .update(encoded)
-      .digest('base64url');
-
-    const sigBuf = Buffer.from(sig);
-    const expBuf = Buffer.from(expectedSig);
-    if (sigBuf.length !== expBuf.length) return null;
-    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null;
 
     const payload = JSON.parse(
       Buffer.from(encoded, 'base64url').toString('utf8')
@@ -61,6 +53,35 @@ export function verifySessionToken(token: string): SessionPayload | null {
     if (!payload.sub || !payload.role) {
       return null;
     }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export function verifySessionTokenForAdmin(
+  token: string,
+  passcode: string
+): SessionPayload | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [encoded, sig] = parts;
+    if (!encoded || !sig) return null;
+
+    const payload = parseSessionToken(token);
+    if (!payload) return null;
+
+    const expectedSig = crypto
+      .createHmac('sha256', deriveAdminSigningKey(payload.sub, passcode))
+      .update(encoded)
+      .digest('base64url');
+
+    const sigBuf = Buffer.from(sig);
+    const expBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expBuf.length) return null;
+    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+
     return payload;
   } catch {
     return null;
@@ -82,7 +103,10 @@ export function checkRateLimit(
 
   if (timestamps.length >= maxAttempts) {
     const oldest = timestamps[0] ?? now;
-    const retryAfterSec = Math.max(1, Math.ceil((windowMs - (now - oldest)) / 1000));
+    const retryAfterSec = Math.max(
+      1,
+      Math.ceil((windowMs - (now - oldest)) / 1000)
+    );
     globalThis._ignitionRateLimits.set(key, timestamps);
     return { allowed: false, retryAfterSec };
   }

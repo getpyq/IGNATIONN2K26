@@ -1,5 +1,5 @@
 export const FINAL_APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbwGzdph4W1UDEyRettY7ZRuGy92VFmFd3Dwp0bQiXTElBLVjo-aOAJrifqpGYmYwL2Ibg/exec';
+  'https://script.google.com/macros/s/AKfycbwwW9aoSU12NKVaWKOGfpxLgTLrkg_x3ADjEIRKaZmq-MPNUKWgP9fqYtgzmUFuyLPvTg/exec';
 
 interface AppsScriptEnvelope<T> {
   ok: boolean;

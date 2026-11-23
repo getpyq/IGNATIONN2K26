@@ -3,8 +3,9 @@ import dotenv from 'dotenv';
 import {
   checkRateLimit,
   clearRateLimit,
-  signSessionToken,
-  verifySessionToken,
+  parseSessionToken,
+  signSessionTokenForAdmin,
+  verifySessionTokenForAdmin,
 } from './security.ts';
 import {
   AppsScriptError,
@@ -74,6 +75,34 @@ interface SheetRegistrationRow {
 
 interface AuthenticatedRequest extends Request {
   admin?: AdminAccountPublic;
+  authToken?: string;
+}
+
+const ADMIN_CACHE_TTL_MS = 2000;
+const cachedAdmins = new Map<
+  string,
+  { row: SheetAdminRow | null; fetchedAt: number }
+>();
+
+function invalidateAdminCache(id?: string) {
+  if (id) cachedAdmins.delete(id);
+  else cachedAdmins.clear();
+}
+
+async function fetchAdminById(
+  id: string,
+  forceRefresh = false
+): Promise<SheetAdminRow | null> {
+  const now = Date.now();
+  const cached = cachedAdmins.get(id);
+  if (!forceRefresh && cached && now - cached.fetchedAt < ADMIN_CACHE_TTL_MS) {
+    return cached.row;
+  }
+  const row = await callAppsScript<SheetAdminRow | null>('adminFindById', {
+    id,
+  });
+  cachedAdmins.set(id, { row, fetchedAt: Date.now() });
+  return row;
 }
 
 function sanitizeAdmin(row: SheetAdminRow): AdminAccountPublic {
@@ -316,19 +345,36 @@ async function requireAdmin(
       }
     }
 
-    const payload = verifySessionToken(token);
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid authentication token. Please sign in again.' });
+    const parsedPayload = parseSessionToken(token);
+    if (!parsedPayload) {
+      return res
+        .status(401)
+        .json({ error: 'Invalid authentication token. Please sign in again.' });
     }
 
-    const adminRow = await callAppsScript<SheetAdminRow | null>(
-      'adminFindById',
-      { id: payload.sub }
-    );
-    if (!adminRow || !adminRow.is_active) {
+    let adminRow = await fetchAdminById(parsedPayload.sub);
+    let verified = adminRow
+      ? verifySessionTokenForAdmin(token, String(adminRow.passcode ?? ''))
+      : null;
+
+    if (!verified) {
+      adminRow = await fetchAdminById(parsedPayload.sub, true);
+      verified = adminRow
+        ? verifySessionTokenForAdmin(token, String(adminRow.passcode ?? ''))
+        : null;
+    }
+
+    if (!verified || !adminRow || verified.role !== adminRow.role) {
+      return res
+        .status(401)
+        .json({ error: 'Invalid authentication token. Please sign in again.' });
+    }
+
+    if (!adminRow.is_active) {
       return res.status(403).json({ error: 'Account inactive or revoked.' });
     }
     req.admin = sanitizeAdmin(adminRow);
+    req.authToken = token;
     return next();
   } catch (err) {
     return handleRouteError(res, err, 'Authentication verification failed.');
@@ -657,7 +703,11 @@ export function createApp() {
           passcode: parsed.data.passcode,
         }
       );
-      const token = signSessionToken(admin.id, admin.role);
+      const token = signSessionTokenForAdmin(
+        admin.id,
+        admin.role,
+        parsed.data.passcode
+      );
       setSessionCookie(req, res, token);
       return res.status(201).json({ admin, token });
     } catch (err) {
@@ -714,7 +764,11 @@ export function createApp() {
       clearRateLimit(`login-ip:${ip}`);
       clearRateLimit(`login-phone:${phone_number}`);
 
-      const token = signSessionToken(adminRow.id, adminRow.role);
+      const token = signSessionTokenForAdmin(
+        adminRow.id,
+        adminRow.role,
+        storedPasscode
+      );
       setSessionCookie(req, res, token);
 
       return res.json({
@@ -732,7 +786,7 @@ export function createApp() {
   });
 
   app.get('/api/admin/me', requireAdmin, (req: AuthenticatedRequest, res) => {
-    res.json({ admin: req.admin });
+    res.json({ admin: req.admin, token: req.authToken });
   });
 
   // Overview counts + registrations list
@@ -1056,6 +1110,7 @@ export function createApp() {
             is_active: parsed.data.is_active,
           }
         );
+        invalidateAdminCache(id);
         return res.json(updated);
       } catch (err) {
         return handleRouteError(res, err, 'Failed to update coordinator.');
@@ -1081,6 +1136,7 @@ export function createApp() {
           id,
           passcode: parsed.data.passcode,
         });
+        invalidateAdminCache(id);
         return res.json({ ok: true });
       } catch (err) {
         return handleRouteError(res, err, 'Failed to reset passcode.');

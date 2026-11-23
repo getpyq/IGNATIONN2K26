@@ -54,8 +54,15 @@ export async function logoutAdmin(): Promise<void> {
 
 export async function fetchCurrentAdmin(): Promise<{
   admin: AdminAccountPublic;
+  token?: string;
 }> {
-  return apiFetch('/api/admin/me');
+  const res = await apiFetch<{ admin: AdminAccountPublic; token?: string }>(
+    '/api/admin/me'
+  );
+  if (res.token) {
+    setInMemoryAuthToken(res.token);
+  }
+  return res;
 }
 
 let cachedOverview: AdminOverviewSummary | null = null;
